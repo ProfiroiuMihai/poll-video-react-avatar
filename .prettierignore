@@ -1,0 +1,14 @@
+
+
+node_modules
+yarn.lock
+build
+yarn-error.log
+package-lock.json
+vite.config.ts
+tsconfig.node.json
+tailwind.config.json
+index.html
+vite-env.d.ts
+.eslintignore
+.husky

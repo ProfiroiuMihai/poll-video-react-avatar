@@ -1,0 +1,17 @@
+
+node_modules
+yarn.lock
+build
+yarn-error.log
+package-lock.json
+vite.config.ts
+tsconfig.node.json
+tailwind.config.js
+index.html
+vite-env.d.ts
+eslintrc.json
+.eslintignore
+.husky
+.commitlintrc.json
+commitlint.config.js
+postcss.config.js
