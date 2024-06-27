@@ -20,6 +20,7 @@ import {
   Configuration,
   NewSessionData,
   StreamingAvatarApi,
+  TaskResponse,
 } from '@heygen/streaming-avatar';
 import axios from 'axios';
 import { Button } from '@/components';
@@ -31,8 +32,8 @@ const WebcamCapture: React.FC = () => {
     useRef<HTMLVideoElement>(null);
   const avatar = useRef<StreamingAvatarApi | null>(null);
   const recognition = useRef<any>(null);
+  const [isHygenSpeaking, setIsHygenSpeaking] = React.useState(false);
   const socket = useRef<any>(null);
-
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [data, setData] = useState<NewSessionData | null>(null);
   const [initialized, setInitialized] = useState(false);
@@ -71,16 +72,20 @@ const WebcamCapture: React.FC = () => {
 
       const startTalkCallback = () => {
         if (recognition.current) {
+          setIsHygenSpeaking(true);
           recognition.current.stop();
+          setSpeakingStarted(false);
         }
       };
 
       const stopTalkCallback = () => {
-        if (recognition.current && !speakingStarted) {
-          recognition.current.start();
-        }
-        console.log('Avatar has stopped talking');
-        // Add any additional logic here when the avatar stops talking
+        setTimeout(() => {
+          if (!isHygenSpeaking && recognition?.current) {
+            recognition.current.start();
+            setSpeakingStarted(true);
+            setIsHygenSpeaking(false);
+          }
+        }, 1000);
       };
 
       avatar.current.addEventHandler('avatar_start_talking', startTalkCallback);
@@ -110,16 +115,21 @@ const WebcamCapture: React.FC = () => {
         {
           newSessionRequest: {
             quality: 'low',
-            avatarName: '',
-            voice: { voiceId: '' },
+            avatarName: 'Justin_public_3_20240308',
+            voice: { voiceId: '1840d6dd209541d18ce8fdafbdbf8ed8' },
           },
         },
         handleDebugStatus
       );
+      console.log('res', res);
+
       setData(res);
       setStream(avatar.current.mediaStream);
     } catch (err) {
-      console.error('Error starting avatar session:', err);
+      toastAlert(
+        'error',
+        'reach user session limit.. Please try again in 30 seconds'
+      );
     } finally {
       setIsLoading(false);
     }
@@ -215,8 +225,7 @@ const WebcamCapture: React.FC = () => {
       setTranscript(transcript ?? '');
     };
 
-    recognition.current.onerror = (event: any) => {
-      console.error('Speech recognition error:', event.error);
+    recognition.current.onerror = () => {
       recognition.current?.stop();
       setSpeakingStarted(false);
     };
@@ -243,17 +252,12 @@ const WebcamCapture: React.FC = () => {
     socketInstance.on('message', async ({ text }: { text: string }) => {
       console.log('Received message:', text);
       if (avatar.current && data?.sessionId) {
-        await avatar.current.speak({
+        const hygenSpeaking: TaskResponse = await avatar.current.speak({
           taskRequest: { text, sessionId: data.sessionId },
         });
-
-        // Listen for the avatar_stop_talking event within the message handler
-        avatar.current.addEventHandler('avatar_stop_talking', () => {
-          console.log(
-            'Avatar has stopped talking in response to socket message'
-          );
-          // Add any additional logic here when the avatar stops talking
-        });
+        if (hygenSpeaking.message === 'message') {
+          setIsHygenSpeaking(true);
+        }
       }
     });
 
@@ -266,14 +270,17 @@ const WebcamCapture: React.FC = () => {
 
   useEffect(() => {
     if (transcriptData && socket.current) {
-      socket.current.emit('speech', {
-        transcript: transcriptData.trim(),
-        lang: selectedLanguage ?? 'en-US',
-      });
+      if (!isHygenSpeaking) {
+        socket.current.emit('speech', {
+          transcript: transcriptData.trim(),
+          lang: selectedLanguage ?? 'en-US',
+        });
+      }
     }
   }, [transcriptData]);
 
   console.log('speaking', speakingStarted);
+  console.log('hygen speaking', isHygenSpeaking);
 
   return (
     <div className="p-10 bg-[#000000ad] h-screen">
